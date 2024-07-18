@@ -1,0 +1,46 @@
+version: "3.8"
+
+services:
+  app:
+    container_name: app
+    build: ./app/
+    command: bash -c "python3 main.py"
+    #volumes:
+    #  - /Users/htalukder/mlops/assets/superknowa-apps/celery-fastapi-scaffold/app:/app
+    ports:
+      - 8000:8000
+    restart: always
+
+  redis:
+    container_name: redis
+    image: redis:7.2.5-alpine
+    restart: always
+
+  celery_worker:
+    container_name: celery_worker
+    build: ./app/
+    #volumes:
+    #  - ./app/:/app
+    command: celery -A celery_worker.celery worker --loglevel=info
+    environment:
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+    depends_on:
+      - app
+      - redis
+    restart: always
+
+  flower:
+    container_name: flower
+    build: ./app/
+    command: celery --broker=redis://redis:6379/0 flower --port=5555
+    ports:
+      - 5556:5555
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - app
+      - redis
+      - celery_worker
+    restart: always
